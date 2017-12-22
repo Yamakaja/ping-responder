@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -7,11 +8,15 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <fcntl.h>
 
 #define MAX_EVENTS 64
 
 void handle_event(struct epoll_event *event);
+void handle_signal(int sig);
+
+int sock, epoll_sock;
 
 void setnonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL);
@@ -27,8 +32,25 @@ void setnonblocking(int fd) {
     }
 }
 
+void handle_signal(int sig) {
+    close(sock);
+    close(epoll_sock);
+    exit(0);
+}
+
 int main(int arc, char **argv) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    struct sigaction sa;
+    sa.sa_handler = handle_signal;
+    sa.sa_flags = SA_RESTART;
+    sigfillset(&sa.sa_mask);
+
+    if (sigaction(SIGINT, &sa, NULL) == -1)
+        printf("%s: Failed to intercept SIGINT: %s\n", argv[0], strerror(errno));
+
+    if (sigaction(SIGHUP, &sa, NULL) == -1)
+        printf("%s: Failed to intercept SIGHUP: %s\n", argv[0], strerror(errno));
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
     
     if (sock < 0) {
         printf("%s: An error occurred while trying to open socket: %s\n", argv[0], strerror(errno));
@@ -53,7 +75,7 @@ int main(int arc, char **argv) {
 
     struct epoll_event ev, events[MAX_EVENTS];
 
-    int epoll_sock = epoll_create1(0);
+    epoll_sock = epoll_create1(0);
     if (epoll_sock == -1) {
         printf("%s: Failed to create epoll instance: %s\n", argv[0], strerror(errno));
         return 1;

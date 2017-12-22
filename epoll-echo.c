@@ -35,6 +35,7 @@ void setnonblocking(int fd) {
 void handle_signal(int sig) {
     close(sock);
     close(epoll_sock);
+
     exit(0);
 }
 
@@ -55,6 +56,12 @@ int main(int arc, char **argv) {
     if (sock < 0) {
         printf("%s: An error occurred while trying to open socket: %s\n", argv[0], strerror(errno));
         return 1;
+    }
+
+    int val = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int))) {
+            printf("%s: Failed to set socket option: %s\n", argv[0], strerror(errno));
+            return 1;
     }
 
     struct sockaddr_in addr;
@@ -110,6 +117,7 @@ int main(int arc, char **argv) {
                 }
 
                 setnonblocking(client_fd);
+
                 ev.events = EPOLLIN;
                 ev.data.fd = client_fd;
                 if (epoll_ctl(epoll_sock, EPOLL_CTL_ADD, client_fd, &ev) == -1) {

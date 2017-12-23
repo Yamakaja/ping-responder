@@ -1,16 +1,16 @@
 #include <string.h>
 #include <unistr.h>
 
-#include "protocol.h"
+#include "encoding.h"
 
 size_t required_var_int_bytes(int value) {
     if (value < 0)
         return 5;
 
-    if (value < 1 << 6)
+    if (value < 1 << 7)
         return 1;
 
-    if (value < 1 << 13)
+    if (value < 1 << 14)
         return 2;
 
     if (value < 1 << 21)
@@ -22,21 +22,28 @@ size_t required_var_int_bytes(int value) {
     return 5;
 }
 
-int read_var_int(char *buffer, size_t buffer_size, size_t *offset) {
+int read_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int *target) {
     int result = 0;
-    char cur = 0x80;
-    for (int i = 0; i < 5 && *offset < buffer_size && (cur & 0x80); i++)
-        result |= ((cur = buffer[(*offset)++]) & 0x7F) << 7 * i;
+    int round = 0;
+    uint8_t cur;
 
-    return result;
+    do {
+        if (*offset >= buffer_size || round == 5)
+            return -1;
+
+        result |= ((cur = buffer[(*offset)++]) & 0x7F) << 7 * round;
+    } while (round++, cur & 0x80);
+
+    *target = result;
+    return 0;
 }
 
-void write_var_int(char *buffer, size_t buffer_size, size_t *offset, int value) {
+void write_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int value) {
     for (int i = 0; i < 5 && *offset < buffer_size && (i == 0 || (value >> i * 7)); i++) 
         buffer[(*offset)++] = (unsigned char) (((value >> i * 7) & 0x7F) | ((value >> (i + 1) * 7) ? 0x80 : 0x0));
 }
 
-void write_string(char *buffer, size_t buffer_size, size_t *offset, char *str, size_t len) {
+void write_string(uint8_t *buffer, size_t buffer_size, size_t *offset, char *str, size_t len) {
     if (u8_strlen((uint8_t *) str) > 32767)
         return;
     
@@ -48,8 +55,10 @@ void write_string(char *buffer, size_t buffer_size, size_t *offset, char *str, s
     *offset += len;
 }
 
-int read_string(char *buffer, size_t buffer_size, size_t *offset, char *target_buffer, size_t target_buffer_size) {
-    int size = read_var_int(buffer, buffer_size, offset);
+int read_string(uint8_t *buffer, size_t buffer_size, size_t *offset, char *target_buffer, size_t target_buffer_size) {
+    int size;
+    if (read_var_int(buffer, buffer_size, offset, &size))
+        return -1;
 
     if (size + 1 > target_buffer_size)
         return -1;
@@ -64,7 +73,7 @@ int read_string(char *buffer, size_t buffer_size, size_t *offset, char *target_b
     return 0;
 }
 
-void write_short(char *buffer, size_t buffer_size, size_t *offset, uint16_t value) {
+void write_short(uint8_t *buffer, size_t buffer_size, size_t *offset, uint16_t value) {
     if (buffer_size - *offset < 2)
         return;
 
@@ -72,14 +81,15 @@ void write_short(char *buffer, size_t buffer_size, size_t *offset, uint16_t valu
     *offset += 2;
 }
 
-uint16_t read_short(char *buffer, size_t buffer_size, size_t *offset) {
+int read_short(uint8_t *buffer, size_t buffer_size, size_t *offset, uint16_t *target) {
     if (buffer_size - *offset < 2)
-        return 0;
+        return -1;
 
     uint8_t a = *(buffer + (*offset)++);
     uint8_t b = *(buffer + (*offset)++);
 
-    return (uint16_t) (0x0U | a << 8 | b);
+    *target = (uint16_t) (0x0U | a << 8 | b);
+    return 0;
 }
 
 

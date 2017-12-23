@@ -15,65 +15,45 @@ char *response_body;
 size_t response_body_size;
 
 void handle_client(struct sockaddr_in *addr, int client) {
-        char buffer[1024];
-        size_t read_pos = 0;
-        size_t received = recv(client, buffer, sizeof(buffer), 0);
+    uint8_t buffer[1024];
+    size_t read_bytes = read(client, buffer, sizeof(buffer));
+    size_t offset = 0;
 
-        char *ip = inet_ntoa(addr->sin_addr);
-        printf("Accepted connection from: %s\n", ip);
+    mc_packet packet;
+    if (init_packet(&packet, buffer, read_bytes, &offset)) {
+        printf("Failed to initialize packet! (%s:%d)\n", __FILE__, __LINE__);
+        cleanup_packet(&packet);
+        return;
+    }
 
-        if (received < 0) {
-            printf("An error occurred in connection to %s: %s\n", ip, strerror(errno));
-            return;
-        }
+    if (packet.id != 0) {
+        puts("Received invalid packet ...");
+        cleanup_packet(&packet);
+        return;
+    }
 
-        if (received < 5)
-            return;
+    if (read_packet(&packet, buffer, read_bytes, &offset)) {
+        printf("Failed to read packet! (%s:%d)\n", __FILE__, __LINE__);
+        cleanup_packet(&packet);
+        return;
+    }
 
-        int length = read_var_int(buffer, received, &read_pos);
-        if (length > received - read_pos)
-            return;
+    int protocol_version;
+    char host[128];
+    uint16_t port;
+    int next_state;
 
-        int packet_id = read_var_int(buffer, received, &read_pos);
-        if (packet_id != 0)
-            return;
+    if (read_packet_var_int(&packet, &protocol_version)
+            || read_packet_string(&packet, host, sizeof(host))
+            || read_packet_short(&packet, &port)
+            || read_packet_var_int(&packet, &next_state)) {
+        printf("Failed to read packet! (%s:%d)\n", __FILE__, __LINE__);
+        cleanup_packet(&packet);
+        return;
+    }
 
-        int protocol_version = read_var_int(buffer, received, &read_pos);
-
-        char host[128];
-        if (read_string(buffer, received, &read_pos, host, sizeof(host)))
-            return;
-
-        uint16_t port = read_short(buffer, received, &read_pos);
-        
-        int next_state = read_var_int(buffer, received, &read_pos);
-
-        printf("Protocol: %d, Host: %s, Port: %d, NextState: %d\n", protocol_version, host, port, next_state);
-
-        if (received == read_pos) {
-            received = recv(client, buffer, sizeof(buffer), 0);
-            read_pos = 0;
-        } 
-
-        length = read_var_int(buffer, received, &read_pos);
-        packet_id = read_var_int(buffer, received, &read_pos);
-
-        if (packet_id != 0)
-            return;
-
-        char response[8192]; 
-        size_t write_pos = 0;
-
-        write_var_int(buffer, sizeof(response), &write_pos, (int) (required_var_int_bytes(response_body_size) + response_body_size) + 1);
-        write_var_int(buffer, sizeof(response), &write_pos, 0);
-        write_string(buffer, sizeof(response), &write_pos, response_body, response_body_size);
-
-        send(client, buffer, write_pos, 0);
-
-        size_t ping_length = recv(client, buffer + write_pos, sizeof(buffer) - write_pos, 0);
-        if (ping_length < 0)
-            return;
-        send(client, buffer + write_pos, ping_length, 0);
+    printf("{protocol_version: %d, host: %s, port: %d, nextState: %d}\n", protocol_version, host, port, next_state);
+    cleanup_packet(&packet);
 }
 
 int main(int argc, char **argv) {

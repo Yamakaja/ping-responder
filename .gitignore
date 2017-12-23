@@ -7,4 +7,6 @@ output.bin
 proto-write
 proto-read
 epoll-echo
+list-test
+signals
 

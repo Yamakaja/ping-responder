@@ -1,5 +1,4 @@
 #include <string.h>
-#include <unistr.h>
 
 #include "encoding.h"
 
@@ -44,9 +43,6 @@ void write_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int32_t 
 }
 
 void write_string(uint8_t *buffer, size_t buffer_size, size_t *offset, char *str, size_t len) {
-    if (u8_strlen((uint8_t *) str) > 32767)
-        return;
-    
     if (buffer_size - *offset - len - 4 < 0)
         return;
     

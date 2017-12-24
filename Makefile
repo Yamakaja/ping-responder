@@ -6,7 +6,7 @@ CFLAGS=-Wall -I$(IDIR)
 ODIR=obj
 LDIR=lib
 
-LIBS=-lunistring
+LIBS=
 
 _DEPS = protocol.h encoding.h dict.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))

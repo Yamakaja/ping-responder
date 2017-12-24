@@ -13,7 +13,7 @@ int dict_grow(dict *target, size_t required_size) {
     while (new_size < required_size)
         new_size <<= 1;
 
-    void *tmp = realloc(target->data, sizeof(void *) * new_size);
+    void *tmp = realloc(target->data, sizeof(struct mc_client *) * new_size);
     if (tmp == NULL)
         return -1;
 
@@ -23,7 +23,7 @@ int dict_grow(dict *target, size_t required_size) {
     return 0;
 }
 
-void **dict_get(dict *target, size_t position) {
+struct mc_client **dict_get(dict *target, size_t position) {
     if (position >= target->capacity)
         if (dict_grow(target, position))
             return NULL;

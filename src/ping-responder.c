@@ -147,7 +147,7 @@ int handle_packet(mc_client *client) {
                     return -1;
                 }
 
-                fprintf(stderr, "{protocol_version: %d, host: %s, port: %d, nextState: %d}\n", protocol_version, host, port, next_state);
+                // fprintf(stderr, "{protocol_version: %d, host: %s, port: %d, nextState: %d}\n", protocol_version, host, port, next_state);
 
                 if (next_state != 1)
                     return -1;

@@ -33,7 +33,32 @@ int main(int argc, char **argv) {
     if (load_response())
         return EXIT_FAILURE;
 
-    listening_socket = bind_to(25565);
+    uint16_t port = 25565;
+
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--help") || !(strcmp(argv[i], "-h"))) {
+            printf("Syntax: %s [OPTIONS]...\n", argv[0]);
+            puts("Respond to minecraft pings.");
+            puts("");
+            printf("  %2s%-15s %s\n", "-p",", --port", "Change the listening port, default: 25565");
+            printf("  %2s%-15s %s\n", "-h",", --help", "Show this help");
+            puts("");
+            puts("Author: Yamakaja, License: MIT");
+            return EXIT_SUCCESS;
+        } else if (!strcmp(argv[i], "--port") || !(strcmp(argv[i], "-p")))
+            if (argc > i + 1)
+                port = atoi(argv[++i]);
+            else {
+                printf("Missing argument to %s!\n", argv[i]);
+                return EXIT_FAILURE;
+            }
+        else {
+            printf("Invalid option \"%s\"! See --help for command syntax!\n", argv[i]);
+            return EXIT_FAILURE;
+        }
+    }
+
+    listening_socket = bind_to(port);
     if (listening_socket == -1)
         return EXIT_FAILURE;
 

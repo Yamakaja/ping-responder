@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
     struct epoll_event ev, events[MAX_EVENTS];
 
     epoll_instance = setup_epoll(listening_socket, &ev);
-    if (epoll_instance < 0)
+    if (epoll_instance == -1)
         return EXIT_FAILURE;
 
     clients = dict_init(8);
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
         int nfds = epoll_wait(epoll_instance, events, MAX_EVENTS, -1);
 
         if (nfds == -1) {
-            printf("epoll_wait failed: %s\n", strerror(errno));
+            fprintf(stderr, "epoll_wait failed: %s\n", strerror(errno));
             return EXIT_FAILURE;
         }
 
@@ -92,20 +92,18 @@ void handle_client(struct epoll_event *event) {
             if (errno == EAGAIN)
                 break;
 
-            printf("An error occurred while handling connection: %s\n", strerror(errno));
+            fprintf(stderr, "An error occurred while handling connection: %s\n", strerror(errno));
             close_client(client->fd);
             break;
         }
 
         while (len - offset > 0) {
-            printf("len: %ld, offset: %ld\n", len, offset);
             if (client->packet == NULL) {
                 client->packet = calloc(1, sizeof(mc_packet));
                 init_packet(client->packet, buffer, len, &offset);
             }
 
             read_packet(client->packet, buffer, len, &offset);
-            printf("len: %ld, offset: %ld\n", len, offset);
 
             if (client->packet->status & PKT_COMPLETE) {
                 if (handle_packet(client)) {
@@ -145,11 +143,11 @@ int handle_packet(mc_client *client) {
                         || read_packet_string(client->packet, host, sizeof(host))
                         || read_packet_short(client->packet, &port)
                         || read_packet_var_int(client->packet, &next_state)) {
-                    printf("Failed to read packet! (%s:%d)\n", __FILE__, __LINE__);
+                    fprintf(stderr, "Failed to read packet! (%s:%d)\n", __FILE__, __LINE__);
                     return -1;
                 }
 
-                printf("{protocol_version: %d, host: %s, port: %d, nextState: %d}\n", protocol_version, host, port, next_state);
+                fprintf(stderr, "{protocol_version: %d, host: %s, port: %d, nextState: %d}\n", protocol_version, host, port, next_state);
 
                 if (next_state != 1)
                     return -1;
@@ -216,7 +214,7 @@ void accept_client() {
 
     client->fd = accept(listening_socket, (struct sockaddr *) &client->addr, &addr_len);
     if (client->fd == -1) {
-        printf("An error occurred while trying to accept connection: %s\n", strerror(errno));
+        fprintf(stderr, "An error occurred while trying to accept connection: %s\n", strerror(errno));
         free(client);
         return;
     }
@@ -228,7 +226,7 @@ void accept_client() {
     ev.data.fd = client->fd;
 
     if (epoll_ctl(epoll_instance, EPOLL_CTL_ADD, client->fd, &ev) == -1) {
-        printf("An error occurred while trying to register new client with epoll instance: %s\n", strerror(errno));
+        fprintf(stderr, "An error occurred while trying to register new client with epoll instance: %s\n", strerror(errno));
         close(client->fd);
         free(client);
         return;
@@ -241,14 +239,14 @@ void accept_client() {
 int setup_epoll(int l_socket, struct epoll_event *ev) {
     int epoll_sock = epoll_create1(0);
     if (epoll_sock == -1) {
-        printf("Failed to create epoll instance: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to create epoll instance: %s\n", strerror(errno));
         return -1;
     }
 
     ev->events = EPOLLIN;
     ev->data.fd = listening_socket;
     if (epoll_ctl(epoll_sock, EPOLL_CTL_ADD, l_socket, ev) == -1) {
-        printf("Failed to add listening socket to epoll instance: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to add listening socket to epoll instance: %s\n", strerror(errno));
         return -1;
     }
 
@@ -257,14 +255,14 @@ int setup_epoll(int l_socket, struct epoll_event *ev) {
 
 int bind_to(uint16_t port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        printf("Failed to open socket: %s\n", strerror(errno));
+    if (sock == -1) {
+        fprintf(stderr, "Failed to open socket: %s\n", strerror(errno));
         return -1;
     }
 
     int val = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int))) {
-        printf("Failed to set socket option: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to set socket option: %s\n", strerror(errno));
         return -1;
     }
 
@@ -275,12 +273,12 @@ int bind_to(uint16_t port) {
     addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(sock, (struct sockaddr *) &addr, sizeof(addr))) {
-        printf("Failed to bind socket: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to bind socket: %s\n", strerror(errno));
         return -1;
     }
 
     if (listen(sock, 10)) {
-        printf("Failed to listen on socket: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to listen on socket: %s\n", strerror(errno));
         return -1;
     }
 
@@ -291,12 +289,12 @@ void set_non_blocking(int fd) {
     int flags = fcntl(fd, F_GETFL);
 
     if (flags == -1) {
-        printf("Couldn't get socket options: %s\n", strerror(errno));
+        fprintf(stderr, "Couldn't get socket options: %s\n", strerror(errno));
         return;
     }
 
     if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        printf("Couldn't set socket option: %s\n", strerror(errno));
+        fprintf(stderr, "Couldn't set socket option: %s\n", strerror(errno));
         return;
     }
 }
@@ -308,10 +306,10 @@ void setup_signal_handler() {
     sigfillset(&sa.sa_mask);
 
     if (sigaction(SIGINT, &sa, NULL) == -1)
-        printf("Failed to attach SIGINT signal handler: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to attach SIGINT signal handler: %s\n", strerror(errno));
     
     if (sigaction(SIGHUP, &sa, NULL) == -1)
-        printf("Failed to attach SIGHUP signal handler: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to attach SIGHUP signal handler: %s\n", strerror(errno));
 }
 
 void handle_signal(int sig) {
@@ -333,7 +331,7 @@ int load_response() {
     struct stat file_stat;
 
     if (stat("response.json", &file_stat)) {
-        printf("Failed to stat response.json: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to stat response.json: %s\n", strerror(errno));
         return -1;
     }
 
@@ -346,7 +344,7 @@ int load_response() {
 
     int fd = open("response.json", 0);
     if (fd == -1) {
-        printf("Failed to open response.json: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to open response.json: %s\n", strerror(errno));
         return -1;
     }
 

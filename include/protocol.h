@@ -1,8 +1,9 @@
 #ifndef HEADER_PROTOCOL
 #define HEADER_PROTOCOL
 
+#include <netinet/ip.h>
+
 #include "encoding.h"
-#include <stdlib.h>
 
 enum mc_packet_status {
     PKT_INCOMPLETE  = 1 << 0,
@@ -22,6 +23,20 @@ typedef struct mc_packet {
 
     int status;
 } mc_packet;
+
+enum protocol_state {
+    STATE_PRE_HANDSHAKE,
+    STATE_PRE_REQUEST,
+    STATE_PRE_PING
+};
+
+typedef struct mc_client {
+    int fd;
+    struct sockaddr_in addr;
+
+    mc_packet *packet;
+    int state;
+} mc_client;
 
 int init_packet(mc_packet *packet, uint8_t *buffer, size_t buffer_size, size_t *offset);
 void cleanup_packet(mc_packet *packet);

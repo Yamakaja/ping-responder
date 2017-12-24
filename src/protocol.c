@@ -1,5 +1,7 @@
-#include "protocol.h"
 #include <string.h>
+#include <stdlib.h>
+
+#include "protocol.h"
 
 int init_packet(mc_packet *packet, uint8_t *buffer, size_t buffer_size, size_t *offset) {
     packet->status = 0;
@@ -29,7 +31,7 @@ int init_packet(mc_packet *packet, uint8_t *buffer, size_t buffer_size, size_t *
 
     packet->size -= required_var_int_bytes(packet->id);
 
-    packet->data = malloc(packet->size);
+    packet->data = calloc(1, packet->size);
     if (packet->data == NULL) {
         packet->status = PKT_INVALID;
         return -1;
@@ -63,6 +65,8 @@ int read_packet(mc_packet *packet, uint8_t *buffer, size_t buffer_size, size_t *
         packet->status &= ~PKT_INCOMPLETE;
         packet->status |= PKT_COMPLETE;
     }
+
+    *offset += to_read;
 
     return 0;
 }

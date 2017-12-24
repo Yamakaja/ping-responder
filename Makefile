@@ -8,10 +8,10 @@ LDIR=lib
 
 LIBS=-lunistring
 
-_DEPS = protocol.h encoding.h list.h
+_DEPS = protocol.h encoding.h dict.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-_OBJ = protocol.o encoding.o ping-responder.o list.o
+_OBJ = protocol.o encoding.o ping-responder.o dict.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 $(ODIR)/%.o: $(SDIR)/%.c $(DEPS)

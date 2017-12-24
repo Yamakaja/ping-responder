@@ -99,7 +99,7 @@ void handle_client(struct epoll_event *event) {
 
         while (len - offset > 0) {
             if (client->packet == NULL) {
-                client->packet = calloc(1, sizeof(mc_packet));
+                client->packet = calloc(1, sizeof(*client->packet));
                 init_packet(client->packet, buffer, len, &offset);
             }
 
@@ -208,7 +208,7 @@ void close_client(int fd) {
 }
 
 void accept_client() {
-    mc_client *client = calloc(1, sizeof(mc_client));
+    mc_client *client = calloc(1, sizeof(*client));
     client->packet = NULL;
     socklen_t addr_len = sizeof(struct sockaddr_in);
 

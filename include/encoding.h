@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <stdint.h>
 
-int read_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int *target);
-void write_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int value);
+int read_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int32_t *target);
+void write_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int32_t value);
 size_t required_var_int_bytes(int value);
 
 int read_string(uint8_t *buffer, size_t buffer_size, size_t *offset, char *target_buffer, size_t target_buffer_size);

@@ -22,7 +22,7 @@ size_t required_var_int_bytes(int value) {
     return 5;
 }
 
-int read_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int *target) {
+int read_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int32_t *target) {
     int result = 0;
     int round = 0;
     uint8_t cur;
@@ -38,7 +38,7 @@ int read_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int *targe
     return 0;
 }
 
-void write_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int value) {
+void write_var_int(uint8_t *buffer, size_t buffer_size, size_t *offset, int32_t value) {
     for (int i = 0; i < 5 && *offset < buffer_size && (i == 0 || (value >> i * 7)); i++) 
         buffer[(*offset)++] = (unsigned char) (((value >> i * 7) & 0x7F) | ((value >> (i + 1) * 7) ? 0x80 : 0x0));
 }

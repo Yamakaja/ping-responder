@@ -3,7 +3,7 @@
 
 dict dict_init(size_t initial_capacity) {
     struct dict new_dict;
-    new_dict.data = malloc(sizeof(*new_dict.data) * initial_capacity);
+    new_dict.data = calloc(1, sizeof(*new_dict.data) * initial_capacity);
     new_dict.capacity = initial_capacity;
     return new_dict;
 }
@@ -16,6 +16,9 @@ int dict_grow(dict *target, size_t required_size) {
     struct mc_client **tmp = realloc(target->data, sizeof(*tmp) * new_size);
     if (tmp == NULL)
         return -1;
+
+    for (int i = target->capacity; i < new_size; i++)
+        tmp[i] = NULL;
 
     target->capacity = new_size;
     target->data = tmp;

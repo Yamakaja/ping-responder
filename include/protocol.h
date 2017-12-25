@@ -27,7 +27,9 @@ typedef struct mc_packet {
 enum protocol_state {
     STATE_PRE_HANDSHAKE,
     STATE_PRE_REQUEST,
-    STATE_PRE_PING
+    STATE_PRE_PING,
+    STATE_PRE_LOGIN,
+    STATE_PRE_ENCRYPTION
 };
 
 typedef struct mc_client {

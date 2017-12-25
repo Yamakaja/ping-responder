@@ -22,8 +22,11 @@
 int listening_socket;
 int epoll_instance;
 
-uint8_t *response_body;
-size_t response_body_size;
+uint8_t *ping_response_body;
+size_t ping_response_body_size;
+
+uint8_t *kick_response_body;
+size_t kick_response_body_size;
 
 dict clients;
 
@@ -174,10 +177,17 @@ int handle_packet(mc_client *client) {
 
                 // fprintf(stderr, "{protocol_version: %d, host: %s, port: %d, nextState: %d}\n", protocol_version, host, port, next_state);
 
-                if (next_state != 1)
-                    return -1;
+                switch (next_state) {
+                    case 1:
+                        client->state = STATE_PRE_REQUEST;
+                        break;
+                    case 2:
+                        client->state = STATE_PRE_LOGIN;
+                        break;
+                    default:
+                        return -1;
+                }
 
-                client->state = STATE_PRE_REQUEST;
                 return 0;
             }
         case STATE_PRE_REQUEST:
@@ -187,7 +197,7 @@ int handle_packet(mc_client *client) {
                     return -1;
                 }
 
-                write(client->fd, response_body, response_body_size);
+                write(client->fd, ping_response_body, ping_response_body_size);
 
                 client->state = STATE_PRE_PING;
                 return 0;
@@ -210,6 +220,23 @@ int handle_packet(mc_client *client) {
                 write_var_int(buffer, sizeof(buffer), &offset, 1);
                 memcpy(buffer + offset, client->packet->data, client->packet->size);
                 write(client->fd, buffer, offset + client->packet->size);
+                return -1;
+            }
+        case STATE_PRE_LOGIN:
+            {
+                if (client->packet->id != 0) {
+                    puts("Received packet with non-zero id during login ...");
+                    return -1;
+                }
+
+                if (client->packet->size > 50) {
+                    puts("Received too large login request!");
+                    return -1;
+                }
+
+                write(client->fd, kick_response_body, kick_response_body_size);
+
+                client->state = STATE_PRE_ENCRYPTION;
                 return -1;
             }
     }
@@ -347,7 +374,8 @@ void handle_signal(int sig) {
     close(listening_socket);
     close(epoll_instance);
 
-    free(response_body);
+    free(ping_response_body);
+    free(kick_response_body);
 
     exit(EXIT_SUCCESS);
 }
@@ -355,31 +383,65 @@ void handle_signal(int sig) {
 int load_response() {
     struct stat file_stat;
 
-    if (stat("response.json", &file_stat)) {
-        fprintf(stderr, "Failed to stat response.json: %s\n", strerror(errno));
+    // Server list ping response
+
+    if (stat("ping-response.json", &file_stat)) {
+        fprintf(stderr, "Failed to stat ping-response.json: %s\n", strerror(errno));
         return -1;
     }
 
-    response_body_size = required_var_int_bytes(file_stat.st_size)
+    ping_response_body_size = required_var_int_bytes(file_stat.st_size)
         + required_var_int_bytes(file_stat.st_size + required_var_int_bytes(file_stat.st_size) + 1)
         + file_stat.st_size
         + 1;
 
-    response_body = malloc(response_body_size);
+    ping_response_body = malloc(ping_response_body_size);
 
-    int fd = open("response.json", 0);
+    int fd = open("ping-response.json", 0);
     if (fd == -1) {
-        fprintf(stderr, "Failed to open response.json: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to open ping-response.json: %s\n", strerror(errno));
         return -1;
     }
 
     size_t write_offset = 0;
 
-    write_var_int(response_body, response_body_size, &write_offset, 1 + required_var_int_bytes(file_stat.st_size) + file_stat.st_size);
-    write_offset++;
-    write_var_int(response_body, response_body_size, &write_offset, file_stat.st_size);
+    write_var_int(ping_response_body, ping_response_body_size, &write_offset, 1 + required_var_int_bytes(file_stat.st_size) + file_stat.st_size);
+    ping_response_body[write_offset++] = 0;
+    write_var_int(ping_response_body, ping_response_body_size, &write_offset, file_stat.st_size);
 
-    read(fd, response_body + write_offset, file_stat.st_size);
+    read(fd, ping_response_body + write_offset, file_stat.st_size);
+    close(fd);
+
+    // Kick message
+
+    if (stat("kick-response.json", &file_stat)) {
+        fprintf(stderr, "Failed to stat kick-response.json: %s\n", strerror(errno));
+        free(ping_response_body);
+        return -1;
+    }
+
+    kick_response_body_size = required_var_int_bytes(file_stat.st_size)
+        + required_var_int_bytes(file_stat.st_size + required_var_int_bytes(file_stat.st_size) + 1)
+        + file_stat.st_size
+        + 1;
+
+    kick_response_body = malloc(kick_response_body_size);
+
+    fd = open("kick-response.json", 0);
+    if (fd == -1) {
+        fprintf(stderr, "Failed to open kick-response.json: %s\n", strerror(errno));
+        free(ping_response_body);
+        free(kick_response_body);
+        return -1;
+    }
+
+    write_offset = 0;
+
+    write_var_int(kick_response_body, kick_response_body_size, &write_offset, 1 + required_var_int_bytes(file_stat.st_size) + file_stat.st_size);
+    kick_response_body[write_offset++] = 0;
+    write_var_int(kick_response_body, kick_response_body_size, &write_offset, file_stat.st_size);
+    
+    read(fd, kick_response_body + write_offset, file_stat.st_size);
     close(fd);
 
     return 0;

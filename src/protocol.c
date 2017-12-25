@@ -31,7 +31,7 @@ int init_packet(mc_packet *packet, uint8_t *buffer, size_t buffer_size, size_t *
 
     packet->size -= required_var_int_bytes(packet->id);
 
-    packet->data = calloc(1, packet->size);
+    packet->data = malloc(packet->size);
     if (packet->data == NULL) {
         packet->status = PKT_INVALID;
         return -1;

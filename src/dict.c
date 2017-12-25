@@ -3,7 +3,7 @@
 
 dict dict_init(size_t initial_capacity) {
     struct dict new_dict;
-    new_dict.data = calloc(1, sizeof(*new_dict.data) * initial_capacity);
+    new_dict.data = malloc(sizeof(*new_dict.data) * initial_capacity);
     new_dict.capacity = initial_capacity;
     return new_dict;
 }
